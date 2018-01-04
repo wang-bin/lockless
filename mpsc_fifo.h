@@ -18,6 +18,11 @@ public:
         }
     }
 
+    template<typename... Args>
+    void push(Args&&... args) {
+        push({std::forward<Args>(args)...});
+    }
+
     void push(T&& v) {
         node *n = new node{std::move(v)};
 #if 0

@@ -19,6 +19,11 @@ public:
         }
     }
 
+    template<typename... Args>
+    void push(Args&&... args) {
+        push({std::forward<Args>(args)...});
+    }
+
     void push(T&& v) {
         node *n = new node{std::move(v)};
         node* t = in_.load(std::memory_order_relaxed);
@@ -39,7 +44,7 @@ public:
 private:
     struct node {
         T v;
-        node *next = nullptr;
+        node *next;
     };
 
     node *out_ = new node();
