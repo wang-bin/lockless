@@ -19,6 +19,8 @@ public:
         }
     }
 
+    void clear() { while(pop()) {}} // in consumer thread
+
     template<typename... Args>
     void push(Args&&... args) {
         push({std::forward<Args>(args)...});
