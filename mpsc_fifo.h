@@ -1,7 +1,8 @@
 /*
- * Copyright (c) 2017 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2017-2018 WangBin <wbsecg1 at gmail.com>
  * MIT License
  * Lock Free MPSC FIFO
+ * https://github.com/wang-bin/lock_free
  */
 #include <atomic>
 #include <utility>
@@ -21,8 +22,10 @@ public:
     void clear() { while(pop()) {}} // in consumer thread
 
     template<typename... Args>
-    void push(Args&&... args) {
-        push({std::forward<Args>(args)...});
+    void emplace(Args&&... args) {
+        node *n = new node{std::forward<Args>(args)...};
+        node* t = in_.exchange(n, std::memory_order_acq_rel);
+        t->next.store(n, std::memory_order_release);
     }
 
     void push(T&& v) {
