@@ -8,6 +8,8 @@
 #include <atomic>
 #include <utility>
 
+#define MPSC_FIFO_RAW_NEXT_PTR 0
+
 template<typename T>
 class mpsc_fifo {
 public:
@@ -23,27 +25,39 @@ public:
     template<typename... Args>
     void emplace(Args&&... args) {
         node *n = new node{std::forward<Args>(args)...};
+#if MPSC_FIFO_RAW_NEXT_PTR // slower
+        node* t = in_.load(std::memory_order_relaxed);
+        do {
+            t->next = n;
+        } while (!in_.compare_exchange_weak(t, n, std::memory_order_acq_rel, std::memory_order_relaxed));
+#else
         node* t = in_.exchange(n, std::memory_order_acq_rel);
         t->next.store(n, std::memory_order_release);
+#endif
     }
 
     void push(T&& v) {
         node *n = new node{std::move(v)};
-#if 0
+#if MPSC_FIFO_RAW_NEXT_PTR // slower
         node* t = in_.load(std::memory_order_relaxed);
-        while (!in_.compare_exchange_weak(t, n, std::memory_order_acq_rel, std::memory_order_relaxed)) {}
+        do {
+            t->next = n;
+        } while (!in_.compare_exchange_weak(t, n, std::memory_order_acq_rel, std::memory_order_relaxed));
 #else
         node* t = in_.exchange(n, std::memory_order_acq_rel);
-#endif
-     
         t->next.store(n, std::memory_order_release);
+#endif
     }
 
     bool pop(T* v = nullptr) {
         // will check next.load() later, also next.store() in push() must be after exchange, so relaxed is enough
         if (out_ == in_.load(std::memory_order_relaxed)) //if (!out_->next) // not completely write to out_->next (t->next.store()), next is not null but invalid
             return false;
+#if MPSC_FIFO_RAW_NEXT_PTR
+        node *n = out_->next;
+#else
         node *n = out_->next.load(std::memory_order_relaxed);
+#endif
         if (!n) // before t->next.store() after in_.exchange() in push()
             return false;
         if (v)
@@ -55,7 +69,11 @@ public:
 private:
     struct node {
         T v;
+#if MPSC_FIFO_RAW_NEXT_PTR
+        node* next;
+#else
         std::atomic<node*> next;
+#endif
     };
 
     node *out_ = new node();
