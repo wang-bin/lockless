@@ -3,21 +3,21 @@
  * Copyright (c) 2017-2018 WangBin <wbsecg1 at gmail.com>
  * MIT License
  * Lock Free SPSC FIFO
- * https://github.com/wang-bin/lock_free
+ * https://github.com/wang-bin/lockless
  */
+#pragma once
 #include <atomic>
 #include <utility>
 
+// namespace lockless { namespace spsc {}}
 template<typename T>
 class spsc_fifo {
 public:
     spsc_fifo() { in_.store(out_); }
 
     ~spsc_fifo() {
-        while (node* h = out_) {
-            out_ = h->next;
-            delete h;
-        }
+        clear();
+        delete out_;
     }
 
     void clear() { while(pop()) {}} // in consumer thread
