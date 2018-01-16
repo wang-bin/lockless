@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018 WangBin <wbsecg1 at gmail.com>
  * MIT License
  * https://github.com/wang-bin/lockless
  */
@@ -13,6 +13,13 @@
 using namespace std;
 using namespace chrono;
 
+#define TEST(expr) do { \
+        if (!(expr)) { \
+                std::cerr << __LINE__ << " test error: " << #expr << std::endl; \
+                exit(1); \
+        } \
+} while(false)
+
 struct X {
     /*X(int x = 0, float y = 0){}
     X(X&&) =default;
@@ -21,18 +28,27 @@ struct X {
     float b;
 };
 
-static const int N = 2000000;
-static const int NT = 4;
-int main()
-{
-    cout << "testing mpsc..." << std::endl;
-    mpsc_lifo<X> ms;
-    ms.push({1, 1.0f});
-    while (ms.pop()) {
-        printf("poped\n");
-    }
+static const int N = 500000;
+static const int NT = 6;
 
-    auto t0 = steady_clock::now();
+bool test_mpsc_push_count() {
+    cout << "testing mpsc push count..." << std::endl;
+    mpsc_lifo<X> ms;
+    thread tmsp[NT];
+    for (int k = 0; k < NT; ++k) {
+        tmsp[k] = thread([&ms]{
+            for (int i = 0; i < N; ++i)
+                ms.emplace(i, float(i));
+        });
+    }
+    for (auto& t: tmsp)
+        t.join();
+    return ms.clear() == NT*N;
+}
+
+bool test_mpsc_rw() {
+    cout << "testing mpsc rw..." << std::endl;
+    mpsc_lifo<X> ms;
     thread tmsp[NT];
     for (int k = 0; k < NT; ++k) {
         tmsp[k] = thread([&ms]{
@@ -52,11 +68,27 @@ int main()
     tmsc.join();
     for (auto& t : tmsp)
         t.join();
-    ms.clear();
-    std::cout << "elapsed: " << duration_cast<milliseconds>(steady_clock::now() - t0).count() << std::endl;
-    t0 = steady_clock::now();
+    printf("pop fail count: %d\n", ms.clear());
+    return true;
+}
 
-    cout << "testing mpmc..." << std::endl;
+bool test_mpmc_push_count() {
+    cout << "testing mpmc push count..." << std::endl;
+    mpmc_lifo<X> mm;
+    thread tmmp[NT];
+    for (int k = 0; k < NT; ++k) {
+        tmmp[k] = thread([&mm]{
+            for (int i = 0; i < N; ++i)
+                mm.emplace(i, float(i));
+        });
+    }
+    for (auto& t: tmmp)
+        t.join();
+    return mm.clear() == N*NT;
+}
+
+bool test_mpmc_rw() {
+    cout << "testing mpmc rw..." << std::endl;
     mpmc_lifo<X> mm;
     thread tmmp[NT];
     for (int k = 0; k < NT; ++k) {
@@ -72,6 +104,7 @@ int main()
                 X x;
                 if (!mm.pop(&x)) {
                     //std::cout << this_thread::get_id() << " mpmc pop failed @" << i << std::endl;
+                    //break;
                 }
             }
         });
@@ -80,6 +113,24 @@ int main()
         t.join();
     for (auto& t : tmmp)
         t.join();
-    mm.clear();
-    std::cout << "elapsed: " << duration_cast<milliseconds>(steady_clock::now() - t0).count() << std::endl;
+    printf("pop fail count: %d\n", mm.clear());
+    return true;
+}
+
+int main()
+{
+    auto t0 = steady_clock::now();
+    TEST(test_mpsc_push_count());
+    std::cout << "ms elapsed: " << duration_cast<milliseconds>(steady_clock::now() - t0).count() << std::endl;
+    t0 = steady_clock::now();
+    TEST(test_mpsc_rw());
+    std::cout << "ms elapsed: " << duration_cast<milliseconds>(steady_clock::now() - t0).count() << std::endl;
+    t0 = steady_clock::now();
+    TEST(test_mpmc_push_count());
+    std::cout << "ms elapsed: " << duration_cast<milliseconds>(steady_clock::now() - t0).count() << std::endl;
+    t0 = steady_clock::now();
+    TEST(test_mpmc_rw());
+    std::cout << "ms elapsed: " << duration_cast<milliseconds>(steady_clock::now() - t0).count() << std::endl;
+    t0 = steady_clock::now();
+    return 0;
 }
