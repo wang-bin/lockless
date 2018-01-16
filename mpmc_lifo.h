@@ -34,8 +34,10 @@ public:
         popping_++;
         node* out = io_.load(); // pop() in another thread & out can be null
         while (out && !io_.compare_exchange_weak(out, out->next)) {}
-        if (!out) // became empty in another thead pop()
+        if (!out) {// became empty in another thead pop()
+            popping_--;
             return false;
+        }
         if (v)
             *v = std::move(out->v);
         try_delete(out);
@@ -83,7 +85,7 @@ private:
         delete_later(n, end);
     }
 
-    std::atomic<node*> io_;
-    std::atomic<node*> pendding_delete_;
-    std::atomic<int> popping_;
+    std::atomic<node*> io_{nullptr};
+    std::atomic<node*> pendding_delete_{nullptr};
+    std::atomic<int> popping_{0};
 };
