@@ -20,7 +20,13 @@ public:
         delete out_;
     }
 
-    void clear() { while(pop()) {}} // in consumer thread
+    // return number of element cleared
+    int clear() {
+        int n = 0;
+        while (pop())
+            n++;
+        return n;
+    } // in consumer thread
 
     template<typename... Args>
     void emplace(Args&&... args) {
