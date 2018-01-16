@@ -8,8 +8,6 @@
 #include <atomic>
 #include <utility>
 
-#define MPMC_LIFO_RAW_NEXT_PTR 1
-
 template<typename T>
 class mpmc_lifo {
 public:
@@ -22,13 +20,8 @@ public:
     template<typename... Args>
     void emplace(Args&&... args) {
         node *n = new node{std::forward<Args>(args)...};
-#if MPMC_LIFO_RAW_NEXT_PTR
         n->next = io_.load();
         while (!io_.compare_exchange_weak(n->next, n)) {}
-#else
-        node* t = io_.exchange(n, std::memory_order_acq_rel);
-        n->next.store(t, std::memory_order_release);
-#endif
     }
 
     void push(T&& v) {
@@ -65,11 +58,10 @@ private:
     void try_delete(node* n) {
         if (popping_ == 1) {
             node* ns = pendding_delete_.exchange(nullptr);
-            if (!--popping_) { // safe, another thread run into pop() now will not get a deleting out
+            if (!--popping_) // safe, another thread run into pop() now will not get a deleting out
                 delete_pendding(ns);
-            } else if (ns) { // 3 threads, t1 in try_delete before exchange(), t2  t3 just load() in pop() and get the same out, t3 finishes pop() first, t1 exchange and get t3 popped node, now popping_ is 2, if delete --popping>0, t2 later accesses invalid out 
+            else // 3 threads, t1 in try_delete before exchange(), t2  t3 just load() in pop() and get the same out, t3 finishes pop() first, t1 exchange and get t3 popped node, now popping_ is 2, if delete --popping>0, t2 later accesses invalid out 
                 delete_later(ns); // can not delete (delete later appended reading node, so considering 3 threads is enough)
-            }
             delete n;
         } else {
             delete_later(n, n);
@@ -82,6 +74,8 @@ private:
         while (!pendding_delete_.compare_exchange_weak(end->next, begin)) {}
     }
     void delete_later(node* n) {
+        if (!n)
+            return;
         node* end = n;
         while (node* const next = end->next) {
             end = next;
