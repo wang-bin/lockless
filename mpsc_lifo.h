@@ -53,5 +53,5 @@ private:
         node* next;
     };
 
-    std::atomic<node*> io_{nullptr};
+    std::atomic<node*> io_ = {nullptr};
 };

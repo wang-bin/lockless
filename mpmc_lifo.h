@@ -91,7 +91,8 @@ private:
         delete_later(n, end);
     }
 
-    std::atomic<node*> io_{nullptr};
-    std::atomic<node*> pendding_delete_{nullptr};
-    std::atomic<int> popping_{0};
+// = {} not {}: fix g++4.8 atomic copy ctor error in compiler generated default ctor if atomic member is direct list initialized (class template only)
+    std::atomic<node*> io_ = {nullptr};
+    std::atomic<node*> pendding_delete_ = {nullptr};
+    std::atomic<int> popping_ = {0};
 };
