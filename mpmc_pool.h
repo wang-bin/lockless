@@ -19,8 +19,15 @@ public:
     }
 
     int clear() {
-        T* t = nullptr;
         int n = 0;
+        for (auto& p : fixed_pool_) {
+            if (p.v) {
+                delete p.v; //
+                p.v = nullptr;
+                n++;
+            }
+        }
+        T* t = nullptr;
         while (pool_.pop(&t)) {
             delete t;
             n++;
