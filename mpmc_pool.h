@@ -11,7 +11,7 @@
 #include <memory>
 #include "mpmc_lifo.h"
 
-template<typename T>
+template<typename T, int PoolSize = 16>
 class mpmc_pool { // consumer thread can be producer thread, so availble models are single thread, mpsc, mpmc
 public:
     ~mpmc_pool() {
@@ -66,5 +66,5 @@ private:
         T* v = nullptr;
         std::atomic_flag used = ATOMIC_FLAG_INIT;
     };
-    mutable fixed_pool_node fixed_pool_[16];
+    mutable fixed_pool_node fixed_pool_[PoolSize];
 };
