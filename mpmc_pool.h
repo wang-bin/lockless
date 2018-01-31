@@ -46,8 +46,8 @@ public:
     auto get(F&& f, Args&&... args) const->std::unique_ptr<T, std::function<void(T*)>> {
         T* t = nullptr;
         if (!pool_.pop(&t)) {
-            printf("pool is empty. create a new one\n");
-            t = f(args...);
+            printf("LIFO pool is empty. create a new one\n");
+            t = f(std::forward<Args>(args)...);
         }
         assert(t && "t can't be null");
         return {t, [this](T* t){
@@ -61,11 +61,11 @@ public:
         for (auto& p : fixed_pool_) {
             if (!p.used.test_and_set()) {
                 if (!p.v) // safe to check and init because only 1 thread can use it
-                    p.v = f(args...);
+                    p.v = f(std::forward<Args>(args)...);
                 return {p.v, [&p](T* t){ p.used.clear();}};
             }
         }
-        return get(f, args...);
+        return get(std::forward<F>(f), std::forward<Args>(args)...);
     }
 private:
     mutable mpmc_lifo<T*> pool_;
