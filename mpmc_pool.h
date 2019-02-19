@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2019 WangBin <wbsecg1 at gmail.com>
  * MIT License
  * Lock Free MPMC Pool
  * https://github.com/wang-bin/lockless
@@ -18,18 +18,22 @@ public:
         clear();
     }
 
+    void set_deleter(std::function<void(T*)> deleter) {
+        deleter_ = deleter;
+    }
+
     int clear() {
         int n = 0;
         for (auto& p : fixed_pool_) {
             if (p.v) {
-                delete p.v; //
+                deleter_(p.v); //
                 p.v = nullptr;
                 n++;
             }
         }
         T* t = nullptr;
         while (pool_.pop(&t)) {
-            delete t;
+            deleter_(t);
             n++;
         }
         return n;
@@ -42,8 +46,9 @@ public:
       \param args... parameters of f
       \return unique_ptr of T
      */
+    using tracked_ptr = std::unique_ptr<T, std::function<void(T*)>>;
     template<typename F, typename... Args>
-    auto get(F&& f, Args&&... args) const->std::unique_ptr<T, std::function<void(T*)>> {
+    auto get(F&& f, Args&&... args) const->tracked_ptr {
         T* t = nullptr;
         if (!pool_.pop(&t)) {
             printf("LIFO pool is empty. create a new one\n");
@@ -74,4 +79,5 @@ private:
         std::atomic_flag used = ATOMIC_FLAG_INIT;
     };
     mutable fixed_pool_node fixed_pool_[PoolSize];
+    std::function<void(T*)> deleter_ = std::default_delete<T>();
 };
