@@ -10,11 +10,12 @@
 #include <functional>
 #include <memory>
 #include "mpmc_lifo.h"
+#include "mpsc_lifo.h"
 
-template<typename T, int PoolSize = 16>
-class mpmc_pool { // consumer thread can be producer thread, so availble models are single thread, mpsc, mpmc
+template<typename T, template<typename> class C,  int PoolSize = 16>
+class pool { // consumer thread can be producer thread, so availble models are single thread, mpsc, mpmc
 public:
-    ~mpmc_pool() {
+    ~pool() {
         clear();
     }
 
@@ -73,7 +74,7 @@ public:
         return get(std::forward<F>(f), std::forward<Args>(args)...);
     }
 private:
-    mutable mpmc_lifo<T*> pool_;
+    mutable C<T*> pool_;
     using fixed_pool_node = struct {
         T* v = nullptr;
         std::atomic_flag used = ATOMIC_FLAG_INIT;
@@ -81,3 +82,9 @@ private:
     mutable fixed_pool_node fixed_pool_[PoolSize];
     std::function<void(T*)> deleter_ = std::default_delete<T>();
 };
+
+template<typename T, int N=16>
+using mpmc_pool = pool<T, mpmc_lifo, N>;
+
+template<typename T, int N=16>
+using mpsc_pool = pool<T, mpmc_lifo, N>;
