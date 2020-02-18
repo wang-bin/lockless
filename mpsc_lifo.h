@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2017-2020 WangBin <wbsecg1 at gmail.com>
  * MIT License
  * Lock Free MPSC FIFO
  * https://github.com/wang-bin/lockless
@@ -28,12 +28,15 @@ public:
         node *n = new node{std::forward<Args>(args)...};
         n->next = io_.load();
         while (!io_.compare_exchange_weak(n->next, n)) {}
+        count_++;
     }
 
-    void push(T&& v) {
-        node *n = new node{std::move(v)};
+    template<typename U>
+    void push(U&& v) {
+        node *n = new node{std::forward<U>(v)};
         n->next = io_.load(); // next can be a raw ptr
         while (!io_.compare_exchange_weak(n->next, n)) {}
+        count_++;
     }
 
     bool pop(T* v = nullptr) {
@@ -45,7 +48,12 @@ public:
         if (v)
             *v = std::move(out->v);
         delete out;
+        count_--;
         return true;
+    }
+
+    int size() const {
+        return count_;
     }
 private:
     struct node {
@@ -53,5 +61,6 @@ private:
         node* next;
     };
 
-    std::atomic<node*> io_ = {nullptr};
+    std::atomic<node*> io_{nullptr};
+    std::atomic<int> count_{0};
 };

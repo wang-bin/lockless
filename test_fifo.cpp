@@ -7,6 +7,7 @@
 #include "spsc_fifo.h"
 #include "mpsc_fifo.h"
 #include "mpmc_fifo.h"
+#include <cstdlib>
 #include <thread>
 #include <iostream>
 #include <chrono>
@@ -29,8 +30,8 @@ struct X {
     float b;
 };
 
-static const int N = 100000;
-static const int NT = 4;
+static const int N = 500000;
+static const int NT = 6;
 
 bool test_spsc_push_count() {
     cout << "testing spsc push count..." << std::endl;
@@ -58,7 +59,7 @@ bool test_spsc_rw() {
     });
     tssc.join();
     tssp.join();
-    printf("pop fail count: %d\n", ss.clear());
+    printf("spsc pop fail count: %d\n", ss.clear());
     return true;
 }
 
@@ -99,7 +100,7 @@ bool test_mpsc_rw() {
     tmsc.join();
     for (auto& t : tmsp)
         t.join();
-    printf("pop fail count: %d\n", ms.clear());
+    printf("mpsc pop fail count: %d\n", ms.clear());
     return true;
 }
 
@@ -124,8 +125,9 @@ bool test_mpmc_rw() {
     thread tmmp[NT];
     for (int k = 0; k < NT; ++k) {
         tmmp[k] = thread([&mm]{
-            for (int i = 0; i < N; ++i)
+            for (int i = 0; i < N; ++i) {
                 mm.emplace(i, float(i));
+            }
         });
     }
     thread tmmc[NT];
@@ -144,7 +146,7 @@ bool test_mpmc_rw() {
         t.join();
     for (auto& t : tmmp)
         t.join();
-    printf("pop fail count: %d\n", mm.clear());
+    printf("mpmc pop fail count: %d\n", mm.clear());
     return true;
 }
 
@@ -153,7 +155,7 @@ int main()
     X *x = new X{1,2.0f};
     spsc_fifo<X> q;
     q.emplace(1, 2.0f);
-    q.push({2, 3.f});
+    q.push(X{2, 3.f});
     while (q.pop()) {
         printf("poped\n");
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2017-2020 WangBin <wbsecg1 at gmail.com>
  * MIT License
  * Lock Free MPSC FIFO
  * https://github.com/wang-bin/lockless
@@ -42,8 +42,9 @@ public:
 #endif
     }
 
-    void push(T&& v) {
-        node *n = new node{std::move(v)};
+    template<typename U>
+    void push(U&& v) {
+        node *n = new node{std::forward<U>(v)};
 #if MPSC_FIFO_RAW_NEXT_PTR // slower
         node* t = in_.load(std::memory_order_relaxed);
         do {

@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2017-2018 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2017-2020 WangBin <wbsecg1 at gmail.com>
  * MIT License
  * Lock Free SPSC FIFO
  * https://github.com/wang-bin/lockless
@@ -36,11 +36,12 @@ public:
         in_.store(n, std::memory_order_release);
     }
 
-    void push(T&& v) {
-        node *n = new node{std::move(v)};
+    template<typename U>
+    void push(U&& v) {
+        node *n = new node{std::forward<U>(v)};
         node* t = in_.load(std::memory_order_relaxed);
         t->next = n;
-        in_.store(n, std::memory_order_release);
+        in_.store(n, std::memory_order_release); // ensure t->next is written
     }
 
     bool pop(T* v = nullptr) {

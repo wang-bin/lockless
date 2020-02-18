@@ -6,6 +6,7 @@
 
 #include "mpsc_lifo.h"
 #include "mpmc_lifo.h"
+#include <cstdlib>
 #include <thread>
 #include <iostream>
 #include <chrono>
@@ -68,7 +69,7 @@ bool test_mpsc_rw() {
     tmsc.join();
     for (auto& t : tmsp)
         t.join();
-    printf("pop fail count: %d\n", ms.clear());
+    printf("mpsc pop fail count: %d\n", ms.clear());
     return true;
 }
 
@@ -113,7 +114,7 @@ bool test_mpmc_rw() {
         t.join();
     for (auto& t : tmmp)
         t.join();
-    printf("pop fail count: %d\n", mm.clear());
+    printf("mpmc pop fail count: %d\n", mm.clear());
     return true;
 }
 

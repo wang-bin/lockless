@@ -46,8 +46,9 @@ public:
 #endif
     }
 
-    void push(T&& v) {
-        node *n = new node{std::move(v)};
+    template<typename U>
+    void push(U&& v) {
+        node *n = new node{std::forward<U>(v)};
 #if MPMC_FIFO_RAW_NEXT_PTR // slower
         node* t = in_.load(std::memory_order_relaxed);
         do {
