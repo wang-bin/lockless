@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2018-2020 WangBin <wbsecg1 at gmail.com>
  * MIT License
  * Lock Free MPMC FIFO
  * https://github.com/wang-bin/lockless
@@ -87,6 +87,7 @@ public:
         return true;
     }
 private:
+// TODO: node allocator, using mpmc_bounded_fifo(array)
     struct node {
         T v;
 #if MPMC_FIFO_RAW_NEXT_PTR
@@ -96,7 +97,7 @@ private:
 #endif
     };
 
-    void delete_pendding(node* n) {
+    void delete_pending(node* n) {
         while (n) {
             node *next = n->next;
             delete n;
@@ -106,10 +107,10 @@ private:
 
     void try_delete(node* n) {
         if (popping_ == 1) {
-            node* ns = pendding_delete_.exchange(nullptr);
+            node* ns = pending_delete_.exchange(nullptr);
             if (!--popping_) // safe, another thread run into pop() now will not get a deleting out
-                delete_pendding(ns);
-            else // 3 threads, t1 in try_delete before exchange(), t2  t3 just load() in pop() and get the same out, t3 finishes pop() first, t1 exchange and get t3 popped node, now popping_ is 2, if delete --popping>0, t2 later accesses invalid out 
+                delete_pending(ns);
+            else // 3 threads, t1 in try_delete before exchange(), t2  t3 just load() in pop() and get the same out, t3 finishes pop() first, t1 exchange and get t3 popped node, now popping_ is 2, if delete --popping>0, t2 later accesses invalid out
                 delete_later(ns); // can not delete (delete later appended reading node, so considering 3 threads is enough)
             delete n;
         } else {
@@ -120,10 +121,10 @@ private:
 
     void delete_later(node* begin, node* end) {
 #if MPMC_FIFO_RAW_NEXT_PTR
-        end->next = pendding_delete_;
-        while (!pendding_delete_.compare_exchange_weak(end->next, begin)) {}
+        end->next = pending_delete_;
+        while (!pending_delete_.compare_exchange_weak(end->next, begin)) {}
 #else
-        node* n = pendding_delete_.exchange(begin);
+        node* n = pending_delete_.exchange(begin);
         end->next.store(n);
 #endif
     }
@@ -141,7 +142,7 @@ private:
     std::atomic<node*> out_; // TODO: atomic<shared_ptr<node>> out_; get rid of memory management if lock free
     std::atomic<node*> in_; // can not use in_{out_} because atomic ctor with desired value MUST be constexpr (error in g++4.8 iff use template)
     std::atomic<int> popping_{0};
-    std::atomic<node*> pendding_delete_{nullptr};
-    //mpsc_fifo<node*> pendding_delete_; // unsafe to clear in 3 comsumer threads
+    std::atomic<node*> pending_delete_{nullptr};
+    //mpsc_fifo<node*> pending_delete_; // unsafe to clear in 3 comsumer threads
     //mpmc_fifo<node*> reuse_; // mpmc_fifo<node*> *reuse_; // TODO: recursively reuse undeleted node in push() to slow down leak
 };
