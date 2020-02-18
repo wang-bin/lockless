@@ -1,8 +1,8 @@
 
 /*
- * Copyright (c) 2017-2019 WangBin <wbsecg1 at gmail.com>
+ * Copyright (c) 2017-2020 WangBin <wbsecg1 at gmail.com>
  * MIT License
- * https://github.com/wang-bin/lock_free
+ * https://github.com/wang-bin/lockless
  */
 #include <atomic>
 #include <utility>
