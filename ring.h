@@ -1,6 +1,6 @@
 /******************************************************************************
     QtAV:  Media play library based on Qt and FFmpeg
-    Copyright (C) 2015-2020 Wang Bin <wbsecg1@gmail.com>
+    Copyright (C) 2015-2021 Wang Bin <wbsecg1@gmail.com>
 
 *   This file is part of QtAV
 
@@ -23,27 +23,26 @@
 #include <cassert>
 #include <vector>
 #include <iostream>
-#include "cppcompat/iterator.hpp"
-#include "null_mutex.h"
 #include <mutex>
+#include "null_mutex.h"
 //https://github.com/WG21-SG14/SG14/tree/master/Docs/Proposals
 //https://github.com/WG21-SG14/SG14/blob/master/SG14/ring.h
 
 template<typename T, typename C, class Mutex>
-class ring_api {
+class ring_api : private Mutex {
 public:
     void clear() { while (pop_front()) {}}
 
     template<typename U>
     void push(U&& t) {
-        std::lock_guard<Mutex> lock(mtx_);
+        std::lock_guard<Mutex> lock(*this); // std::lock_guard will be lock_guard<ring_api> and is not a lock_guard<Mutex> because of private inheritance
         data_[in_] = std::forward<U>(t);
         update_index_after_push();
     }
 
     template<typename... Args>
     void emplace(Args&&... args) {
-        std::lock_guard<Mutex> lock(mtx_);
+        std::lock_guard<Mutex> lock(*this);
         //static_assert(std::is_array<C>::value, "only static_ring supports emplace(...)");
         data_[in_].~T(); // already default constructed, so destruct first
         new (&data_[in_]) T{std::forward<Args>(args)...};
@@ -57,7 +56,7 @@ public:
     void emplace_back(Args&&... args) { emplace(std::forward<Args>(args)...);}
 
     size_t pop(T* v = nullptr) {
-        std::lock_guard<Mutex> lock(mtx_);
+        std::lock_guard<Mutex> lock(*this);
         const size_t n = size();
         if (n == 0)
             return n;
@@ -74,21 +73,21 @@ public:
     bool pop_front() { return pop() > 0; }
 
     T &front() {
-        //std::lock_guard<Mutex> lock(mtx_);
+        //std::lock_guard<Mutex> lock(*this);
         return data_[out_];
     }
 
     const T &front() const {
-        std::lock_guard<Mutex> lock(mtx_);
+        std::lock_guard<Mutex> lock(*this);
         return data_[out_];
     }
     T &back() {
-        //std::lock_guard<Mutex> lock(mtx_);
+        //std::lock_guard<Mutex> lock(*this);
         return data_[in_];
     }
 
     const T &back() const {
-        std::lock_guard<Mutex> lock(mtx_);
+        std::lock_guard<Mutex> lock(*this);
         return data_[in_];
     }
     size_t capacity() const { return std::size(data_) - 1; }
@@ -98,13 +97,13 @@ public:
     bool empty() const { return size() == 0;}
     // need at() []?
     const T &at(size_t i) const {
-        std::lock_guard<Mutex> lock(mtx_);
+        std::lock_guard<Mutex> lock(*this);
         return data_[index(out_+i)];
     }
 
     const T &operator[](size_t i) const {return at(i);}
     T &operator[](size_t i) {
-        std::lock_guard<Mutex> lock(mtx_);
+        std::lock_guard<Mutex> lock(*this);
         return data_[index(out_+i)];
     }
 
